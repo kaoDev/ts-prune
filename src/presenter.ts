@@ -1,17 +1,38 @@
 import { State } from "./state";
-import { IAnalysedResult } from "./analyzer";
+
+const fileIgnorePatterns = [".styleguide.tsx"];
 
 export const present = (state: State) => {
-  const unused2D = state
+  const filesWithUnusedSymbols = state
     .definitelyUnused()
-    .filter(result => result.symbols.length > 0)
+    .filter(result =>
+      fileIgnorePatterns.every(pattern => !result.file.includes(pattern))
+    )
+    .filter(result => result.symbols.length > 0);
+
+  const symbolCount = filesWithUnusedSymbols.reduce(
+    (sum, result) => sum + result.symbols.length,
+    0
+  );
+
+  const unusedSymbols = filesWithUnusedSymbols
     .map(result => ({
       file: result.file.replace(process.cwd(), "."),
       symbols: result.symbols
     }))
-    .map(result => {
-      return result.symbols.map(symbol => [symbol, result.file].join(" @ "));
-    });
+    .flatMap(result =>
+      result.symbols
+        .map(symbol =>
+          [symbol.name, `${result.file}:${symbol.line}:${symbol.column}`].join(
+            " @ "
+          )
+        )
+        .concat("")
+    );
 
-  return [].concat.apply([], unused2D) as Array<IAnalysedResult>;
+  return {
+    fileCount: filesWithUnusedSymbols.length,
+    symbolCount,
+    unusedSymbols
+  };
 };

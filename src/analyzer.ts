@@ -4,22 +4,30 @@ import {
   Project,
   SourceFile,
   SourceFileReferencingNodes,
-  ts
+  ts,
+  Node
 } from "ts-morph";
 import { isDefinitelyUsedImport } from "./util/isDefinitelyUsedImport";
 import { getModuleSourceFile } from "./util/getModuleSourceFile";
+import { SingleBar, Presets } from "cli-progress";
 
 type OnResultType = (result: IAnalysedResult) => void;
 
-export enum AnalysisResultTypeEnum {
-  POTENTIALLY_UNUSED,
-  DEFINITELY_USED
+export const enum AnalysisResultTypeEnum {
+  POTENTIALLY_UNUSED = "POTENTIALLY_UNUSED",
+  DEFINITELY_USED = "DEFINITELY_USED"
+}
+
+interface CodeSymbol {
+  name: string;
+  line: number;
+  column: number;
 }
 
 export interface IAnalysedResult {
   file: string;
   type: AnalysisResultTypeEnum;
-  symbols: Array<string>;
+  symbols: Array<CodeSymbol>;
 }
 
 function handleExportDeclaration(node: SourceFileReferencingNodes) {
@@ -48,13 +56,104 @@ const nodeHandlers = {
 };
 
 function getExported(file: SourceFile) {
-  const exported: string[] = [];
+  const exported: CodeSymbol[] = [];
 
   file.getExportSymbols().map(symbol => {
-    exported.push(symbol.compilerSymbol.name);
+    let symbolPosition = { line: 0, column: 0 };
+    try {
+      symbolPosition = file.getLineAndColumnAtPos(
+        symbol.getValueDeclaration()?.getPos() ?? 0
+      );
+    } catch (e) {
+      // console.log(
+      //   "ERROR ON POSITION",
+      //   file.getFilePath(),
+      //   symbol.compilerSymbol.name,
+      //   e
+      // );
+    }
+    exported.push({
+      name: symbol.compilerSymbol.name,
+      ...symbolPosition
+    });
   });
 
   return exported;
+}
+
+const classMembersToIgnore = [
+  "componentDidMount",
+  "componentWillUnmount",
+  "shouldComponentUpdate",
+  "componentWillUpdate",
+  "componentDidUpdate",
+  "render",
+  "defaultProps",
+  "UNSAFE_componentWillReceiveProps",
+  "UNSAFE_componentWillMount",
+  "getDerivedStateFromProps",
+  "componentDidCatch",
+  "hydrate",
+  "__constructor"
+];
+
+const ignoreRegex = new RegExp(classMembersToIgnore.join("|"));
+
+function getUnusedClassMembers(file: SourceFile) {
+  return file
+    .getClasses()
+    .map(clazz => {
+      const unusedMembers = clazz
+        .getMembers()
+        .map(member => {
+          const memberWithRefs = {
+            member,
+            refs: [] as Node[]
+          };
+          const memberName = member.getSymbol()?.getName();
+          if (
+            memberName &&
+            !ignoreRegex.test(memberName) &&
+            Node.isReferenceFindableNode(member)
+          ) {
+            memberWithRefs.refs = member.findReferencesAsNodes();
+          }
+
+          return memberWithRefs;
+        })
+        .filter(({ refs, member }) => {
+          const memberName = member.getSymbol()?.getName();
+
+          return (
+            refs.length === 0 && memberName && !ignoreRegex.test(memberName)
+          );
+        });
+
+      return {
+        clazz,
+        unusedMembers
+      };
+    })
+    .filter(({ unusedMembers }) => unusedMembers.length > 0)
+    .flatMap(({ clazz, unusedMembers }) => {
+      return unusedMembers.map(
+        ({ member }): CodeSymbol => {
+          let symbolPosition = { line: 0, column: 0 };
+          const symbol = member.getSymbol();
+          try {
+            symbolPosition = file.getLineAndColumnAtPos(
+              symbol?.getValueDeclaration()?.getPos() ?? 0
+            );
+            // eslint-disable-next-line no-empty
+          } catch (e) {}
+
+          return {
+            name: `MEMBER: ${clazz.getName()}.${symbol?.getName()}`,
+            ...symbolPosition
+          };
+        }
+      );
+    });
 }
 
 const emitDefinitelyUsed = (file: SourceFile, onResult: OnResultType) => {
@@ -64,7 +163,14 @@ const emitDefinitelyUsed = (file: SourceFile, onResult: OnResultType) => {
       moduleSourceFile: getModuleSourceFile(decl),
       definitelyUsed: isDefinitelyUsedImport(decl)
     }))
-    .filter(meta => meta.definitelyUsed && !!meta.moduleSourceFile)
+    .filter(
+      (
+        meta
+      ): meta is {
+        moduleSourceFile: string;
+        definitelyUsed: true;
+      } => !!meta.definitelyUsed && !!meta.moduleSourceFile
+    )
     .forEach(({ moduleSourceFile }) => {
       onResult({
         file: moduleSourceFile,
@@ -90,18 +196,38 @@ const emitPotentiallyUnused = (file: SourceFile, onResult: OnResultType) => {
 
   const referenced = ([] as string[]).concat(...referenced2D);
 
-  const unused = exported.filter(exp => !referenced.includes(exp));
+  const unused = exported.filter(exp => !referenced.includes(exp.name));
+  const unusedClassMembers = getUnusedClassMembers(file);
 
   onResult({
     file: file.getFilePath(),
-    symbols: unused,
+    symbols: unused.concat(unusedClassMembers),
     type: AnalysisResultTypeEnum.POTENTIALLY_UNUSED
   });
 };
 
 export const analyze = (project: Project, onResult: OnResultType) => {
-  project.getSourceFiles().forEach(file => {
+  const progressBar = new SingleBar(
+    {
+      format:
+        "Project Analysis|" +
+        "{bar}" +
+        "| {percentage}% || {value}/{total} Files || File: {file}",
+      barCompleteChar: "\u2588",
+      barIncompleteChar: "\u2591",
+      hideCursor: true
+    },
+    Presets.shades_classic
+  );
+  const projectFiles = project.getSourceFiles();
+  progressBar.start(projectFiles.length, 0);
+
+  projectFiles.forEach((file, index) => {
+    progressBar.update(index + 1, { file: file.getFilePath() });
+    getUnusedClassMembers(file);
     emitPotentiallyUnused(file, onResult);
     emitDefinitelyUsed(file, onResult);
   });
+
+  progressBar.stop();
 };

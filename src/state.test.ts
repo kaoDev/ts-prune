@@ -9,12 +9,12 @@ describe("State", () => {
     [
       {
         type: AnalysisResultTypeEnum.POTENTIALLY_UNUSED,
-        symbols: ["foo"],
+        symbols: [{ name: "foo", line: 1, column: 2 }],
         file: "foo.ts"
       },
       {
         type: AnalysisResultTypeEnum.POTENTIALLY_UNUSED,
-        symbols: ["bar"],
+        symbols: [{ name: "bar", line: 1, column: 2 }],
         file: "bar.ts"
       }
     ].forEach(result => state.onResult(result));
@@ -30,12 +30,12 @@ describe("State", () => {
     [
       {
         type: AnalysisResultTypeEnum.POTENTIALLY_UNUSED,
-        symbols: ["foo"],
+        symbols: [{ name: "foo", line: 1, column: 2 }],
         file: "foo.ts"
       },
       {
         type: AnalysisResultTypeEnum.DEFINITELY_USED,
-        symbols: ["foo"],
+        symbols: [{ name: "bar", line: 1, column: 2 }],
         file: "foo.ts"
       }
     ].forEach(result => state.onResult(result));
