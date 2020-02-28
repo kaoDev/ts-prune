@@ -11,7 +11,7 @@
     "test": "jest --coverage",
     "test:integration": "sh integration/test.sh",
     "lint": "eslint . --cache --fix --ext .ts,.tsx",
-    "run": "ts-node src/index.ts"
+    "analyze": "ts-node src/index.ts"
   },
   "devDependencies": {
     "@types/jest": "^25.1.2",
