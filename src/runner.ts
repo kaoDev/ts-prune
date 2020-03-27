@@ -32,13 +32,20 @@ export const run = (argv = process.argv.slice(2), output = reportToFile) => {
 
   const presentationState = present(state);
 
-  console.log("");
-  console.log("");
-  console.log(
-    `Found ${presentationState.symbolCount} potentially unused exports in ${presentationState.fileCount} files`
-  );
+  const unusedClassMembersCount = presentationState.unusedSymbols.filter(s =>
+    s.startsWith("MEMBER: ")
+  ).length;
+  const unusedExportsCount =
+    presentationState.symbolCount - unusedClassMembersCount;
 
   presentationState.unusedSymbols.map(value => {
     output(value);
   });
+
+  console.log("");
+  console.log("");
+  console.log(
+    `Found ${unusedExportsCount} potentially unused exports and ${unusedClassMembersCount} potentially unused class members 
+    in ${presentationState.fileCount} files`
+  );
 };

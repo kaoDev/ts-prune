@@ -14,24 +14,24 @@
     "analyze": "ts-node src/index.ts"
   },
   "devDependencies": {
-    "@types/jest": "^25.1.2",
+    "@types/jest": "^25.1.4",
     "@types/lodash": "^4.14.149",
     "@types/minimist": "^1.2.0",
     "@types/node": "^13.7.0",
-    "@typescript-eslint/parser": "^2.19.0",
+    "@typescript-eslint/parser": "^2.25.0",
     "eslint": "^6.8.0",
-    "jest": "^25.1.0",
-    "ts-jest": "^25.2.0",
-    "ts-node": "^8.6.2",
-    "typescript": "^3.7.5"
+    "jest": "^25.2.3",
+    "ts-jest": "^25.2.1",
+    "ts-node": "^8.8.1",
+    "typescript": "^3.8.3"
   },
   "dependencies": {
     "@types/cli-progress": "^3.4.2",
     "cli-progress": "^3.6.0",
     "lodash": "^4.17.15",
-    "minimist": "^1.2.0",
+    "minimist": "^1.2.5",
     "true-myth": "^4.0.0",
-    "ts-morph": "^6.0.2"
+    "ts-morph": "^7.0.0"
   },
   "files": [
     "/lib"

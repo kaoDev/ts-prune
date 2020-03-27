@@ -198,7 +198,6 @@ const emitPotentiallyUnused = (file: SourceFile, onResult: OnResultType) => {
 
   const unused = exported.filter(exp => !referenced.includes(exp.name));
   const unusedClassMembers = getUnusedClassMembers(file);
-
   onResult({
     file: file.getFilePath(),
     symbols: unused.concat(unusedClassMembers),
@@ -224,7 +223,6 @@ export const analyze = (project: Project, onResult: OnResultType) => {
 
   projectFiles.forEach((file, index) => {
     progressBar.update(index + 1, { file: file.getFilePath() });
-    getUnusedClassMembers(file);
     emitPotentiallyUnused(file, onResult);
     emitDefinitelyUsed(file, onResult);
   });
